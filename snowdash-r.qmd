@@ -1,0 +1,461 @@
+---
+title: "Dashing through the snow ❄️"
+format: 
+  dashboard:
+    nav-buttons: [github]
+    github: https://github.com/mine-cetinkaya-rundel/dashing-through-snow
+logo: images/logo.png
+fig-width: 10
+fig-asp: 0.3
+theme: 
+  light: [sandstone, themes/dashboard.scss]
+  dark: [sandstone, themes/dashboard-dark.scss]
+params:
+  today: "2023-12-08"
+---
+
+```{r}
+#| label: load-packages
+#| message: false
+
+library(tidyverse)
+library(DT)
+library(leaflet)
+
+theme_set(theme_minimal(base_size = 24, base_family = "Atkinson Hyperlegible"))
+```
+
+```{r}
+#| label: load-data
+#| message: false
+
+meribel <- read_csv("data/Meribel.csv")
+stations <- read_csv("data/stations.csv")
+```
+
+```{r}
+#| label: set-inputs
+
+time_period <- paste(params$month, params$year)
+today <- as.Date(params$today)
+```
+
+#  {.sidebar}
+
+This dashboard displays weather data for:
+
+**Méribel, [Les Allues](https://en.wikipedia.org/wiki/Les_Allues), Auvergne-Rhône-Alpes, France**
+
+The data were gathered from the [Virtual Crossing](https://www.visualcrossing.com/).
+
+<br>
+
+::: {.callout-note collapse="true"}
+## Measurement units
+
+The variables and their measurement units are given below.
+
+|                                      |                      |
+|:-------------------------------------|:---------------------|
+| **Variable**                         | **Unit** |
+| Temperature, Heat Index & Wind Chill | Degrees Fahrenheit   |
+| Precipitation                        | Inches               |
+| Snow                                 | Inches               |
+| Wind & Wind Gust                     | Miles Per Hour       |
+| Visibility                           | Miles                |
+| Pressure                             | Millibars            |
+| Solar Radiation                      | W/m^2^               |
+| Solar Energy                         | MJ/m^2^              |
+
+Source: [https://www.visualcrossing.com/resources/documentation/weather-api/unit-groups-and-measurement-units](https://www.visualcrossing.com/resources/documentation/weather-api/unit-groups-and-measurement-units/).
+:::
+
+# All
+
+```{r}
+n_snow <- meribel |>
+  filter(snow > 0) |>
+  nrow()
+
+n_below_freezing <- meribel |>
+  filter(temp < 32) |>
+  nrow()
+
+n_below_freezing_color <- case_when(
+  n_below_freezing > 5 ~ "danger",
+  n_below_freezing <= 5 &  n_below_freezing > 3 ~ "warning",
+  .default = "light"
+  )
+```
+
+## Row {height="20%"}
+
+```{r}
+#| content: valuebox
+#| title: "Today"
+
+list(
+  color = "secondary",
+  value = today
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Snowy days"
+
+list(
+  icon = "snow",
+  color = "primary",
+  value = n_snow
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Number of days below freezing"
+
+list(
+  icon = "thermometer-snow",
+  color = n_below_freezing_color,
+  value = n_below_freezing
+)
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{r}
+#| title: Snow fall (in)
+
+ggplot(meribel, aes(x = datetime, y = snow)) +
+  geom_line() +
+  geom_vline(
+    xintercept = today, linetype = "dashed", 
+    color = "#ae8b2d", linewidth = 1.5
+  ) +
+  labs(
+    x = "Date",
+    y = "Snow fall"
+  )
+```
+
+### Column {width="40%"}
+
+```{r}
+#| title: Snow depth (in)
+
+ggplot(meribel, aes(x = datetime, y = snowdepth)) +
+  geom_line() +
+  geom_vline(
+    xintercept = today, linetype = "dashed", 
+    color = "#ae8b2d", linewidth = 1.5
+  ) +
+  labs(
+    x = "Date",
+    y = "Snow depth"
+  )
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{r}
+#| title: Temperature (F)
+
+ggplot(meribel, aes(x = datetime)) +
+  geom_line(aes(y = temp)) +
+  geom_line(aes(y = tempmin), color = "darkgray") +
+  geom_line(aes(y = tempmax), color = "lightgray") +
+  geom_vline(
+    xintercept = today, linetype = "dashed", 
+    color = "#ae8b2d", linewidth = 1.5
+  ) +
+  labs(
+    x = "Date",
+    y = "Temperature"
+  ) +
+  scale_y_continuous(limits = c(10, 50))
+```
+
+### Column {width="40%"}
+
+```{r}
+#| title: Feels like (F)
+
+ggplot(meribel, aes(x = datetime)) +
+  geom_line(aes(y = feelslike)) +
+  geom_line(aes(y = feelslikemin), color = "darkgray") +
+  geom_line(aes(y = feelslikemax), color = "lightgray") +
+  geom_vline(
+    xintercept = today, linetype = "dashed", 
+    color = "#ae8b2d", linewidth = 1.5
+  ) +
+  labs(
+    x = "Date",
+    y = "Temperature"
+  ) +
+  scale_y_continuous(limits = c(10, 50))
+```
+
+# Forecast
+
+```{r}
+meribel_forecast <- meribel |>
+  filter(datetime > today)
+
+n_snow_forecast <- meribel_forecast |>
+  filter(snow > 0) |>
+  nrow()
+
+n_below_freezing_forecast <- meribel_forecast |>
+  filter(temp < 32) |>
+  nrow()
+
+n_below_freezing_forecast_color <- case_when(
+  n_below_freezing_forecast > 5 ~ "danger",
+  n_below_freezing_forecast <= 5 &  n_below_freezing_forecast > 3 ~ "warning",
+  .default = "light"
+  )
+```
+
+## Row {height="20%"}
+
+```{r}
+#| content: valuebox
+#| title: "Today"
+
+list(
+  color = "secondary",
+  value = today
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Snowy days"
+
+list(
+  icon = "snow",
+  color = "primary",
+  value = n_snow_forecast
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Number of days below freezing"
+
+list(
+  icon = "thermometer-snow",
+  color = n_below_freezing_forecast_color,
+  value = n_below_freezing_forecast
+)
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{r}
+#| title: Snow fall (in)
+
+ggplot(meribel_forecast, aes(x = datetime, y = snow)) +
+  geom_line() +
+  labs(
+    x = "Date",
+    y = "Snow fall"
+  )
+```
+
+### Column {width="40%"}
+
+```{r}
+#| title: Snow depth (in)
+
+ggplot(meribel_forecast, aes(x = datetime, y = snowdepth)) +
+  geom_line() +
+  labs(
+    x = "Date",
+    y = "Snow depth"
+  )
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{r}
+#| title: Temperature (F)
+
+ggplot(meribel_forecast, aes(x = datetime)) +
+  geom_line(aes(y = temp)) +
+  geom_line(aes(y = tempmin), color = "darkgray") +
+  geom_line(aes(y = tempmax), color = "lightgray") +
+  labs(
+    x = "Date",
+    y = "Temperature"
+  ) +
+  scale_y_continuous(limits = c(10, 50))
+```
+
+### Column {width="40%"}
+
+```{r}
+#| title: Feels like (F)
+
+ggplot(meribel_forecast, aes(x = datetime)) +
+  geom_line(aes(y = feelslike)) +
+  geom_line(aes(y = feelslikemin), color = "darkgray") +
+  geom_line(aes(y = feelslikemax), color = "lightgray") +
+  labs(
+    x = "Date",
+    y = "Temperature"
+  ) +
+  scale_y_continuous(limits = c(10, 50))
+```
+
+# Historical
+
+```{r}
+meribel_historical <- meribel |>
+  filter(datetime <= today)
+
+n_snow_historical <- meribel_historical |>
+  filter(snow > 0) |>
+  nrow()
+
+n_below_freezing_historical <- meribel_historical |>
+  filter(temp < 32) |>
+  nrow()
+
+n_below_freezing_historical_color <- case_when(
+  n_below_freezing_historical > 5 ~ "danger",
+  n_below_freezing_historical <= 5 &  n_below_freezing_historical > 3 ~ "warning",
+  .default = "light"
+  )
+```
+
+## Row {height="20%"}
+
+```{r}
+#| content: valuebox
+#| title: "Today"
+
+list(
+  color = "secondary",
+  value = today
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Snowy days"
+
+list(
+  icon = "snow",
+  color = "primary",
+  value = n_snow_historical
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Number of days below freezing"
+
+list(
+  icon = "thermometer-snow",
+  color = n_below_freezing_historical_color,
+  value = n_below_freezing_historical
+)
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{r}
+#| title: Snow fall (in)
+
+ggplot(meribel_historical, aes(x = datetime, y = snow)) +
+  geom_line() +
+  labs(
+    x = "Date",
+    y = "Snow fall"
+  )
+```
+
+### Column {width="40%"}
+
+```{r}
+#| title: Snow depth (in)
+
+ggplot(meribel_historical, aes(x = datetime, y = snowdepth)) +
+  geom_line() +
+  labs(
+    x = "Date",
+    y = "Snow depth"
+  )
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{r}
+#| title: Temperature (F)
+
+ggplot(meribel_historical, aes(x = datetime)) +
+  geom_line(aes(y = temp)) +
+  geom_line(aes(y = tempmin), color = "darkgray") +
+  geom_line(aes(y = tempmax), color = "lightgray") +
+  labs(
+    x = "Date",
+    y = "Temperature"
+  ) +
+  scale_y_continuous(limits = c(10, 50))
+```
+
+### Column {width="40%"}
+
+```{r}
+#| title: Feels like (F)
+
+ggplot(meribel_historical, aes(x = datetime)) +
+  geom_line(aes(y = feelslike)) +
+  geom_line(aes(y = feelslikemin), color = "darkgray") +
+  geom_line(aes(y = feelslikemax), color = "lightgray") +
+  labs(
+    x = "Date",
+    y = "Temperature"
+  ) +
+  scale_y_continuous(limits = c(10, 50))
+```
+
+# Data
+
+## Row {height="40%"}
+
+```{r}
+#| title: Weather stations
+
+leaflet() |>
+  addTiles() |>  # Add default OpenStreetMap map tiles
+  addMarkers(
+    lng = stations$Longitude, 
+    lat = stations$Latitude, 
+    popup = stations$Station
+  )
+```
+
+## Row {height="60%"}
+
+```{r}
+#| title: Data
+
+meribel |>
+  select(-name) |>
+  datatable(options = list(dom = 'ftp', paging = TRUE))
+```

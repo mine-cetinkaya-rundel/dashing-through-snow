@@ -1,0 +1,12 @@
+- source: snowdash-python.qmd
+  quarto-pub:
+    - id: 25305b45-8080-4e66-803e-4ba11b4996b9
+      url: 'https://mine.quarto.pub/dashing-through-snow-py'
+- source: snowdash-py.qmd
+  quarto-pub:
+    - id: f5b46d9a-d3e6-46ef-bd50-a56afda89c09
+      url: 'https://mine.quarto.pub/dashing-through-snow-py'
+- source: snowdash-r.qmd
+  quarto-pub:
+    - id: a823b20c-96af-4a0a-b9a9-ba4c57a635bc
+      url: 'https://mine.quarto.pub/dashing-through-snow-r'

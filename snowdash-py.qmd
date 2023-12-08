@@ -1,0 +1,613 @@
+---
+title: "Dashing through the snow ❄️"
+format: 
+  dashboard:
+    nav-buttons: [github]
+    github: https://github.com/mine-cetinkaya-rundel/dashing-through-snow
+logo: images/logo.png
+theme: 
+  light: [sandstone, themes/dashboard.scss]
+  dark: [sandstone, themes/dashboard-dark.scss]
+---
+
+```{python}
+#| label: load-packages
+
+import pandas as pd
+from datetime import datetime
+from ipyleaflet import Map, Marker, Popup, basemaps, basemap_to_tiles
+import itables as itables
+from ipywidgets import HTML
+import plotly.express as px
+import plotly.graph_objects as go
+```
+
+```{python}
+#| tags: [parameters]
+
+today_string = "2023-12-08"
+```
+
+```{python}
+#| label: load-data
+#| message: false
+
+meribel = pd.read_csv("data/Meribel.csv")
+meribel['datetime'] = pd.to_datetime(meribel['datetime'])
+
+stations = pd.read_csv("data/stations.csv")
+```
+
+```{python}
+#| label: set-inputs
+
+today_date = pd.to_datetime(today_string)
+```
+
+#  {.sidebar}
+
+This dashboard displays weather data for:
+
+**Méribel, [Les Alluessa](https://en.wikipedia.org/wiki/Les_Allues), Auvergne-Rhône-Alpes, France**
+
+The data were gathered from the [Virtual Crossing](https://www.visualcrossing.com/).
+
+<br>
+
+::: {.callout-note collapse="true"}
+## Measurement units
+
+The variables and their measurement units are given below.
+
+|                                      |                      |
+|:-------------------------------------|:---------------------|
+| **Variable**                         | **Unit** |
+| Temperature, Heat Index & Wind Chill | Degrees Fahrenheit   |
+| Precipitation                        | Inches               |
+| Snow                                 | Inches               |
+| Wind & Wind Gust                     | Miles Per Hour       |
+| Visibility                           | Miles                |
+| Pressure                             | Millibars            |
+| Solar Radiation                      | W/m^2^               |
+| Solar Energy                         | MJ/m^2^              |
+
+Source: [https://www.visualcrossing.com/resources/documentation/weather-api/unit-groups-and-measurement-units](https://www.visualcrossing.com/resources/documentation/weather-api/unit-groups-and-measurement-units/).
+:::
+
+# All
+
+```{python}
+n_snow = meribel[meribel['snow'] > 0].shape[0]
+
+n_below_freezing = meribel[meribel['temp'] < 32].shape[0]
+
+def below_freezing_color(n):
+    if n > 5:
+        return "danger"
+    elif 3 < n <= 5:
+        return "warning"
+    else:
+        return "light"
+
+n_below_freezing_color = below_freezing_color(n_below_freezing)
+```
+
+## Row {height="20%"}
+
+```{python}
+#| content: valuebox
+#| title: "Today"
+
+dict(
+  color = "secondary",
+  value = today_string
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Snowy days"
+
+dict(
+  icon = "snow",
+  color = "primary",
+  value = n_snow
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Number of days below freezing"
+
+dict(
+  icon = "thermometer-snow",
+  color = n_below_freezing_color,
+  value = n_below_freezing
+)
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{python}
+#| title: Snow fall (in)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for temp, tempmin, tempmax
+fig = fig.add_trace(go.Scatter(x=meribel['datetime'], y=meribel['snow'], mode='lines', name='temp', line=dict(color='black')))
+
+# Add vertical dashed line for today's date
+fig = fig.add_shape(
+    go.layout.Shape(
+        type="line",
+        x0=today_date,
+        x1=today_date,
+        y0=min(meribel['snow']),
+        y1=max(meribel['snow']),
+        line=dict(
+            color="#ae8b2d",
+            width=1.5,
+            dash="dash"
+        )
+    )
+)
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Snow fall",
+)
+
+# Show the plot
+fig.show()
+```
+
+### Column {width="40%"}
+
+```{python}
+#| title: Snow depth (in)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for temp, tempmin, tempmax
+fig = fig.add_trace(go.Scatter(x=meribel['datetime'], y=meribel['snowdepth'], mode='lines', name='temp', line=dict(color='black')))
+
+# Add vertical dashed line for today's date
+fig = fig.add_shape(
+    go.layout.Shape(
+        type="line",
+        x0=today_date,
+        x1=today_date,
+        y0=min(meribel['snowdepth']),
+        y1=max(meribel['snowdepth']),
+        line=dict(
+            color="#ae8b2d",
+            width=1.5,
+            dash="dash"
+        )
+    )
+)
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Snow fall",
+)
+
+# Show the plot
+fig.show()
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{python}
+#| title: Temperature (F)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for temp, tempmin, tempmax
+fig = fig.add_trace(go.Scatter(x=meribel['datetime'], y=meribel['temp'], mode='lines', name='temp', line=dict(color='black')))
+fig = fig.add_trace(go.Scatter(x=meribel['datetime'], y=meribel['tempmin'], mode='lines', name='tempmin', line=dict(color='lightgray')))
+fig = fig.add_trace(go.Scatter(x=meribel['datetime'], y=meribel['tempmax'], mode='lines', name='tempmax', line=dict(color='darkgray')))
+
+# Add vertical dashed line for today's date
+fig = fig.add_shape(
+    go.layout.Shape(
+        type="line",
+        x0=today_date,
+        x1=today_date,
+        y0=10,
+        y1=50,
+        line=dict(
+            color="#ae8b2d",
+            width=1.5,
+            dash="dash"
+        )
+    )
+)
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Temperature",
+    yaxis=dict(range=[10, 50]),
+    showlegend=False
+)
+
+# Show the plot
+fig.show()
+```
+
+### Column {width="40%"}
+
+```{python}
+#| title: Feels like (F)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for feelslike, feelslikemin, feelslikemax
+fig = fig.add_trace(go.Scatter(x=meribel['datetime'], y=meribel['feelslike'], mode='lines', name='feelslike', line=dict(color='black')))
+fig = fig.add_trace(go.Scatter(x=meribel['datetime'], y=meribel['feelslikemin'], mode='lines', name='feelslikemin', line=dict(color='lightgray')))
+fig = fig.add_trace(go.Scatter(x=meribel['datetime'], y=meribel['feelslikemax'], mode='lines', name='feelslikemax', line=dict(color='darkgray')))
+
+# Add vertical dashed line for today's date
+fig = fig.add_shape(
+    go.layout.Shape(
+        type="line",
+        x0=today_date,
+        x1=today_date,
+        y0=10,
+        y1=50,
+        line=dict(
+            color="#ae8b2d",
+            width=1.5,
+            dash="dash"
+        )
+    )
+)
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Feels like",
+    yaxis=dict(range=[10, 50]),
+    showlegend=False
+)
+
+# Show the plot
+fig = fig.show()
+```
+
+# Forecast
+
+```{python}
+meribel_forecast = meribel[meribel['datetime'] > today_date]
+
+n_snow_forecast = meribel_forecast[meribel_forecast['snow'] > 0].shape[0]
+
+n_below_freezing_forecast = meribel_forecast[meribel_forecast['temp'] < 32].shape[0]
+
+n_below_freezing_forecast_color = below_freezing_color(n_below_freezing_forecast)
+```
+
+## Row {height="20%"}
+
+```{python}
+#| content: valuebox
+#| title: "Today"
+
+dict(
+  color = "secondary",
+  value = today_string
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Snowy days"
+
+dict(
+  icon = "snow",
+  color = "primary",
+  value = n_snow_forecast
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Number of days below freezing"
+
+dict(
+  icon = "thermometer-snow",
+  color = n_below_freezing_forecast_color,
+  value = n_below_freezing_forecast
+)
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{python}
+#| title: Snow fall (in)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for temp, tempmin, tempmax
+fig = fig.add_trace(go.Scatter(x=meribel_forecast['datetime'], y=meribel_forecast['snow'], mode='lines', name='temp', line=dict(color='black')))
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Snow fall",
+)
+
+# Show the plot
+fig.show()
+```
+
+### Column {width="40%"}
+
+```{python}
+#| title: Snow depth (in)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for temp, tempmin, tempmax
+fig = fig.add_trace(go.Scatter(x=meribel_forecast['datetime'], y=meribel_forecast['snowdepth'], mode='lines', name='temp', line=dict(color='black')))
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Snow fall",
+)
+
+# Show the plot
+fig.show()
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{python}
+#| title: Temperature (F)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for temp, tempmin, tempmax
+fig = fig.add_trace(go.Scatter(x=meribel_forecast['datetime'], y=meribel_forecast['temp'], mode='lines', name='temp', line=dict(color='black')))
+fig = fig.add_trace(go.Scatter(x=meribel_forecast['datetime'], y=meribel_forecast['tempmin'], mode='lines', name='tempmin', line=dict(color='lightgray')))
+fig = fig.add_trace(go.Scatter(x=meribel_forecast['datetime'], y=meribel_forecast['tempmax'], mode='lines', name='tempmax', line=dict(color='darkgray')))
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Temperature",
+    yaxis=dict(range=[10, 50]),
+    showlegend=False
+)
+
+# Show the plot
+fig.show()
+```
+
+### Column {width="40%"}
+
+```{python}
+#| title: Feels like (F)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for feelslike, feelslikemin, feelslikemax
+fig = fig.add_trace(go.Scatter(x=meribel_forecast['datetime'], y=meribel_forecast['feelslike'], mode='lines', name='feelslike', line=dict(color='black')))
+fig = fig.add_trace(go.Scatter(x=meribel_forecast['datetime'], y=meribel_forecast['feelslikemin'], mode='lines', name='feelslikemin', line=dict(color='lightgray')))
+fig = fig.add_trace(go.Scatter(x=meribel_forecast['datetime'], y=meribel_forecast['feelslikemax'], mode='lines', name='feelslikemax', line=dict(color='darkgray')))
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Feels like",
+    yaxis=dict(range=[10, 50]),
+    showlegend=False
+)
+
+# Show the plot
+fig = fig.show()
+```
+
+# Historical
+
+```{python}
+meribel_historical = meribel[meribel['datetime'] <= today_date]
+
+n_snow_historical = meribel_historical[meribel_historical['snow'] > 0].shape[0]
+
+n_below_freezing_historical = meribel_historical[meribel_historical['temp'] < 32].shape[0]
+
+n_below_freezing_historical_color = below_freezing_color(n_below_freezing_historical)
+```
+
+## Row {height="20%"}
+
+```{python}
+#| content: valuebox
+#| title: "Today"
+
+dict(
+  color = "secondary",
+  value = today_string
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Snowy days"
+
+dict(
+  icon = "snow",
+  color = "primary",
+  value = n_snow_forecast
+)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Number of days below freezing"
+
+dict(
+  icon = "thermometer-snow",
+  color = n_below_freezing_historical_color,
+  value = n_below_freezing_historical
+)
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{python}
+#| title: Snow fall (in)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for temp, tempmin, tempmax
+fig = fig.add_trace(go.Scatter(x=meribel_historical['datetime'], y=meribel_historical['snow'], mode='lines', name='temp', line=dict(color='black')))
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Snow fall",
+)
+
+# Show the plot
+fig.show()
+```
+
+### Column {width="40%"}
+
+```{python}
+#| title: Snow depth (in)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for temp, tempmin, tempmax
+fig = fig.add_trace(go.Scatter(x=meribel_historical['datetime'], y=meribel_historical['snowdepth'], mode='lines', name='temp', line=dict(color='black')))
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Snow fall",
+)
+
+# Show the plot
+fig.show()
+```
+
+## Row {height="40%"}
+
+### Column {width="40%"}
+
+```{python}
+#| title: Temperature (F)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for temp, tempmin, tempmax
+fig = fig.add_trace(go.Scatter(x=meribel_historical['datetime'], y=meribel_historical['temp'], mode='lines', name='temp', line=dict(color='black')))
+fig = fig.add_trace(go.Scatter(x=meribel_historical['datetime'], y=meribel_historical['tempmin'], mode='lines', name='tempmin', line=dict(color='lightgray')))
+fig = fig.add_trace(go.Scatter(x=meribel_historical['datetime'], y=meribel_historical['tempmax'], mode='lines', name='tempmax', line=dict(color='darkgray')))
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Temperature",
+    yaxis=dict(range=[10, 50]),
+    showlegend=False
+)
+
+# Show the plot
+fig.show()
+```
+
+### Column {width="40%"}
+
+```{python}
+#| title: Feels like (F)
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for feelslike, feelslikemin, feelslikemax
+fig = fig.add_trace(go.Scatter(x=meribel_historical['datetime'], y=meribel_historical['feelslike'], mode='lines', name='feelslike', line=dict(color='black')))
+fig = fig.add_trace(go.Scatter(x=meribel_historical['datetime'], y=meribel_historical['feelslikemin'], mode='lines', name='feelslikemin', line=dict(color='lightgray')))
+fig = fig.add_trace(go.Scatter(x=meribel_historical['datetime'], y=meribel_historical['feelslikemax'], mode='lines', name='feelslikemax', line=dict(color='darkgray')))
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Feels like",
+    yaxis=dict(range=[10, 50]),
+    showlegend=False
+)
+
+# Show the plot
+fig = fig.show()
+```
+
+# Data
+
+## Row {height="40%"}
+
+```{python}
+#| title: Weather stations
+
+# Create a map object centered around the first station's location
+center = [stations['Latitude'][0], stations['Longitude'][0]]
+m = Map(center=center, zoom=9)
+
+# Add markers for each station
+for index, row in stations.iterrows():
+    marker = Marker(location=[row['Latitude'], row['Longitude']])
+    
+    # Create an HTML widget to display station information
+    station_info = HTML()
+    station_info.value = f"<b>{row['Station']}</b>"
+    
+    # Create a Popup and set the HTML widget as its child
+    popup = Popup(location=[row['Latitude'], row['Longitude']], child=station_info)
+    marker.popup = popup
+    
+    m.add_layer(marker)
+
+# Display the map
+m
+```
+
+## Row {height="60%"}
+
+```{python}
+#| title: Data
+
+# Selecting all columns except 'name'
+meribel = meribel.drop(columns=['name'])
+
+# Displaying the DataFrame as an interactive table with pagination using itables
+itables.options.classes = ["display", "table", "table-bordered", "table-striped"]
+itables.show(meribel)
+```
