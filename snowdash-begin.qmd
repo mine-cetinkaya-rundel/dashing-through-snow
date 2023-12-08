@@ -1,0 +1,98 @@
+---
+title: Dashing through the snow ❄️
+format: revealjs
+jupyter: python3
+---
+
+```{python}
+import pandas as pd
+from datetime import datetime
+import itables as itables
+import plotly.express as px
+import plotly.graph_objects as go
+```
+
+```{python}
+#| tags: [parameters]
+today_string = "2023-12-08"
+```
+
+```{python}
+#| message: false
+meribel = pd.read_csv("data/Meribel.csv")
+meribel['datetime'] = pd.to_datetime(meribel['datetime'])
+
+stations = pd.read_csv("data/stations.csv")
+```
+
+```{python}
+today_date = pd.to_datetime(today_string)
+```
+
+```{python}
+n_snow = meribel[meribel['snow'] > 0].shape[0]
+
+n_below_freezing = meribel[meribel['temp'] < 32].shape[0]
+
+def below_freezing_color(n):
+    if n > 5:
+        return "danger"
+    elif 3 < n <= 5:
+        return "warning"
+    else:
+        return "light"
+
+n_below_freezing_color = below_freezing_color(n_below_freezing)
+```
+
+## Snow fall
+
+```{python}
+#| label: fig-snow-fall
+#| fig-cap: Snow fall in Meribel
+#| scrolled: true
+
+# Create figure
+fig = go.Figure()
+
+# Add lines for temp, tempmin, tempmax
+fig = fig.add_trace(go.Scatter(x=meribel['datetime'], y=meribel['snow'], mode='lines', name='temp', line=dict(color='black')))
+
+# Add vertical dashed line for today's date
+fig = fig.add_shape(
+    go.layout.Shape(
+        type="line",
+        x0=today_date,
+        x1=today_date,
+        y0=min(meribel['snow']),
+        y1=max(meribel['snow']),
+        line=dict(
+            color="#ae8b2d",
+            width=1.5,
+            dash="dash"
+        )
+    )
+)
+
+# Set layout including axis labels and y-axis range
+fig = fig.update_layout(
+    xaxis_title="Date",
+    yaxis_title="Snow fall",
+)
+
+# Show the plot
+fig.show()
+```
+
+# Data
+
+```{python}
+#| title: Data
+# Selecting all columns except 'name'
+meribel = meribel.drop(columns=['name'])
+
+# Displaying the DataFrame as an interactive table with pagination using itables
+itables.options.classes = ["display", "table", "table-bordered", "table-striped"]
+itables.show(meribel)
+```
+
